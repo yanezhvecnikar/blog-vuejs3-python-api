@@ -74,3 +74,62 @@ scp -r dist/* user@myserver:/var/www/html/
 - **Systemd** — автозапуск бота и API
 
 ---
+
+[Unit]
+Description=FastAPI app
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/root/blog-vuejs3-python-api/app
+ExecStart=/root/blog-vuejs3-python-api/.venv/bin/python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+[Unit]
+Description=Telegram Bot
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/root/blog-vuejs3-python-api/bot
+ExecStart=/root/blog-vuejs3-python-api/.venv/bin/python bot/bot.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+server {
+    listen 80;
+    server_name euorik.com www.euorik.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name euorik.com www.euorik.com;
+
+    ssl_certificate /etc/letsencrypt/live/euorik.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/euorik.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    root /var/www/euorik.com/html;
+    index index.html;
+
+    # Vue SPA поддержка
+    location / {
+        try_files $uri /index.html;
+    }
+
+    # Проксирование API
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
